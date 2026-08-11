@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#13294B">
+<title>LCP Hours — Time Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap topbar-in">
+    <div class="brand">
+      <span class="brand-mark">LCP</span>
+      <span class="brand-txt">Hours <em>&mdash; Time Tracker</em></span>
+    </div>
+    <div class="sync" id="syncBadge" title="Storage mode">
+      <span class="dot"></span><span id="syncTxt">Local</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ TIMER ============ -->
+  <section class="card timer-card">
+    <div class="timer-main">
+      <div class="timer-read">
+        <div class="clock" id="clock">0:00:00</div>
+        <div class="clock-sub" id="clockSub">Timer stopped</div>
+      </div>
+      <div class="timer-act">
+        <input type="text" id="timerNote" class="in note-in" placeholder="What are you working on? (optional)" autocomplete="off">
+        <button id="btnToggle" class="btn btn-go">Start timer</button>
+        <button id="btnDiscard" class="btn btn-ghost hidden">Discard</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PERIOD ============ -->
+  <section class="card">
+    <div class="period-head">
+      <button class="nav-btn" id="prevPeriod" aria-label="Previous pay period">&#8249;</button>
+      <div class="period-mid">
+        <div class="period-label" id="periodLabel">&nbsp;</div>
+        <div class="period-sub" id="periodSub">&nbsp;</div>
+      </div>
+      <button class="nav-btn" id="nextPeriod" aria-label="Next pay period">&#8250;</button>
+    </div>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-num" id="statTotal">0.00</div>
+        <div class="stat-lbl">Hours this period</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num muted" id="statTarget">0.00</div>
+        <div class="stat-lbl">Target <span class="tiny" id="targetHint"></span></div>
+      </div>
+      <div class="stat">
+        <div class="stat-num" id="statDiff">0.00</div>
+        <div class="stat-lbl" id="diffLbl">vs target</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num muted" id="statAvg">0.0</div>
+        <div class="stat-lbl">Avg hrs / week</div>
+      </div>
+    </div>
+
+    <div class="bar-wrap">
+      <div class="bar"><div class="bar-fill" id="barFill"></div></div>
+      <div class="bar-legend"><span id="barPct">0%</span> of target</div>
+    </div>
+  </section>
+
+  <!-- ============ ENTRIES ============ -->
+  <section class="card">
+    <div class="card-head">
+      <h2>Entries</h2>
+      <button class="btn btn-sm btn-ghost" id="btnAdd">+ Add entry</button>
+    </div>
+
+    <form class="add-form hidden" id="addForm" autocomplete="off">
+      <div class="ff">
+        <label for="fDate">Date</label>
+        <input type="date" id="fDate" class="in" required>
+      </div>
+      <div class="ff">
+        <label for="fStart">Start</label>
+        <input type="time" id="fStart" class="in">
+      </div>
+      <div class="ff">
+        <label for="fEnd">End</label>
+        <input type="time" id="fEnd" class="in">
+      </div>
+      <div class="ff ff-sm">
+        <label for="fHours">Hours</label>
+        <input type="number" id="fHours" class="in" step="0.25" min="0" max="24" placeholder="0.00">
+      </div>
+      <div class="ff ff-grow">
+        <label for="fNote">Note</label>
+        <input type="text" id="fNote" class="in" placeholder="Optional">
+      </div>
+      <div class="ff-btns">
+        <button type="submit" class="btn btn-sm btn-go" id="fSave">Save</button>
+        <button type="button" class="btn btn-sm btn-ghost" id="fCancel">Cancel</button>
+      </div>
+      <p class="form-hint">Enter start and end times, or just type total hours.</p>
+    </form>
+
+    <div id="entryList"></div>
+  </section>
+
+  <!-- ============ REPORT ============ -->
+  <section class="card">
+    <div class="card-head">
+      <h2>Report for Ashley</h2>
+      <label class="chk"><input type="checkbox" id="roundChk" checked> Round to nearest &frac14; hr</label>
+    </div>
+    <pre class="report" id="reportOut"></pre>
+    <div class="report-acts">
+      <button class="btn btn-go" id="btnCopy">Copy report</button>
+      <button class="btn btn-ghost" id="btnEmail">Email to Ashley</button>
+      <button class="btn btn-ghost" id="btnCsv">Download CSV</button>
+    </div>
+    <div class="settings-row">
+      <div class="ff">
+        <label for="sName">Your name</label>
+        <input type="text" id="sName" class="in" placeholder="Jackson Darr">
+      </div>
+      <div class="ff ff-grow">
+        <label for="sEmail">Ashley's email</label>
+        <input type="email" id="sEmail" class="in" placeholder="ashley@...">
+      </div>
+      <div class="ff ff-sm">
+        <label for="sTarget">Target/wk</label>
+        <input type="number" id="sTarget" class="in" step="0.5" min="0" max="80">
+      </div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <span>Pay periods: 1st&ndash;15th and 16th&ndash;end of month.</span>
+    <button class="linkish" id="btnWipe">Reset all data</button>
+  </footer>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
