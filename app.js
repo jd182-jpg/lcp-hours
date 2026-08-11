@@ -429,20 +429,39 @@ function renderReport() {
   renderWorklogStatus();
 }
 
-/** Feedback that the 5pm Obsidian job is actually landing data. */
+/**
+ * Feedback that the 5pm Obsidian job is actually landing data, plus a nudge about days
+ * that have a work log but no hours. Those days are silently absent from the report
+ * (it is built from hours entries), which on a payroll tool is worth saying out loud.
+ */
 function renderWorklogStatus() {
   const el = $('worklogStatus');
-  const days = entriesFor(viewPeriod).map(e => e.date);
-  const covered = [...new Set(days)].filter(d => (worklog[d] || []).length);
-  const items = covered.reduce((n, d) => n + worklog[d].length, 0);
 
   if (!Object.keys(worklog).length) {
     el.textContent = 'No Obsidian work log yet — descriptions fall back to your entry notes.';
     el.classList.remove('on');
     return;
   }
-  el.textContent = `Obsidian work log: ${items} item(s) across ${covered.length} day(s) this period.`;
-  el.classList.toggle('on', items > 0);
+
+  // Count against the work log itself, not against days that happen to have hours.
+  const wlDays = Object.keys(worklog)
+    .filter(d => inPeriod(d, viewPeriod) && (worklog[d] || []).length)
+    .sort();
+  const items = wlDays.reduce((n, d) => n + worklog[d].length, 0);
+  const hourDays = new Set(entriesFor(viewPeriod).map(e => e.date));
+  const missing = wlDays.filter(d => !hourDays.has(d));
+
+  let msg = `Obsidian work log: ${items} item(s) across ${wlDays.length} day(s) this period.`;
+  if (missing.length) {
+    const names = missing.map(d => {
+      const dt = parseYmd(d);
+      return `${MON[dt.getMonth()]} ${dt.getDate()}`;
+    });
+    msg += `  ⚠ No hours logged for ${names.join(', ')} — that work won't appear in the report.`;
+  }
+  el.textContent = msg;
+  el.classList.toggle('on', items > 0 && !missing.length);
+  el.classList.toggle('warn', missing.length > 0);
 }
 
 /* ------------------------------------------------------------------ export */
