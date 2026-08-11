@@ -29,8 +29,10 @@
 
 const FIREBASE_CONFIG = null;   // <-- replace null with the { ... } object from step 3
 
-// Change this only if you want more than one person's hours in the same project.
-const DOC_ID = 'jackson';
+// A random, unguessable id for your timesheet document. Because the app has no login,
+// this string is the only thing standing between your hours and anyone poking around
+// the database. Keep it as-is (or regenerate it) rather than using a name.
+const DOC_ID = 'jd-d0f8f6da107ffb10a294ed50';
 
 /* -------------------------------------------------------------------------- */
 
