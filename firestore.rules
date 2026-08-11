@@ -1,0 +1,31 @@
+rules_version = '2';
+
+// LCP Hours has no login, by design. That means any rule permitting this app also
+// permits anyone running the same request, so access is scoped as narrowly as the
+// rules language allows:
+//
+//   * Only the two exact documents the app uses. Nothing else in the project is
+//     reachable, so adding other data later does not inherit this exposure.
+//   * No `list`. Collections cannot be enumerated, so the document ids cannot be
+//     discovered by browsing — they have to be known.
+//   * No `delete`. Nothing can wipe the timesheet, only add to or update it.
+//
+// The document id is 96 bits of randomness. That is the actual protection here, and
+// it is obscurity rather than authentication: anyone who obtains the id can read and
+// write the data. Do not put anything in here that would be damaging to leak.
+//
+// Unlike test mode, these rules do not expire.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Hours, settings, and the running timer. Written by the web app.
+    match /timesheets/jd-d0f8f6da107ffb10a294ed50 {
+      allow get, create, update: if true;
+    }
+
+    // Daily work descriptions. Written by worklog-sync.py, read by the web app.
+    match /worklog/jd-d0f8f6da107ffb10a294ed50 {
+      allow get, create, update: if true;
+    }
+  }
+}
