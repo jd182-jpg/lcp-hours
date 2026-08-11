@@ -9,7 +9,7 @@
 const LS_KEY = 'lcp-hours-v1';
 const WL_KEY = 'lcp-worklog-v1';
 const DEFAULTS = {
-  name: '', email: '', targetPerWeek: 30, entries: [], timer: null,
+  name: '', email: '', entries: [], timer: null,
   detailMode: 'summary', updatedAt: 0
 };
 
@@ -96,16 +96,6 @@ function inPeriod(dateStr, p) {
   const d = parseYmd(dateStr);
   return d >= p.from && d <= p.to;
 }
-/** Weekdays (Mon–Fri) in a period — used to prorate the weekly target. */
-function weekdaysIn(p) {
-  let n = 0;
-  for (let d = new Date(p.from); d <= p.to; d.setDate(d.getDate() + 1)) {
-    const w = d.getDay();
-    if (w >= 1 && w <= 5) n++;
-  }
-  return n;
-}
-
 /* ------------------------------------------------------------- formatting */
 
 function hhmmss(ms) {
@@ -271,29 +261,12 @@ function renderPeriod() {
   $('periodSub').textContent = halfTxt + (isNow ? '  ·  current period' : '');
 
   const total = totalFor(p);
-  const wk = weekdaysIn(p);
-  const perDay = (Number(state.targetPerWeek) || 0) / 5;
-  const target = round2(wk * perDay);
-  const diff = round2(total - target);
-
   $('statTotal').textContent = total.toFixed(2);
-  $('statTarget').textContent = target.toFixed(2);
-  $('targetHint').textContent = `(${wk} weekdays)`;
-
-  const dEl = $('statDiff');
-  dEl.textContent = (diff >= 0 ? '+' : '') + diff.toFixed(2);
-  dEl.className = 'stat-num ' + (Math.abs(diff) < 0.005 ? 'muted' : diff > 0 ? 'pos' : 'neg');
-  $('diffLbl').textContent = diff >= 0 ? 'over target' : 'under target';
+  $('statDays').textContent = new Set(entriesFor(p).map(e => e.date)).size;
 
   // Average per week across the period's calendar length.
   const days = Math.round((p.to - p.from) / 86400000) + 1;
   $('statAvg').textContent = (total / (days / 7)).toFixed(1);
-
-  const pct = target > 0 ? (total / target) * 100 : 0;
-  const fill = $('barFill');
-  fill.style.width = Math.min(100, pct).toFixed(1) + '%';
-  fill.classList.toggle('over', pct > 100);
-  $('barPct').textContent = Math.round(pct) + '%';
 }
 
 function renderEntries() {
@@ -614,14 +587,13 @@ function wire() {
   };
   bind('sName', 'name', false);
   bind('sEmail', 'email', false);
-  bind('sTarget', 'targetPerWeek', true);
 
   $('btnWipe').addEventListener('click', () => {
     if (!confirm('Delete all logged hours and settings? This cannot be undone.')) return;
     state = Object.assign({}, DEFAULTS);
     viewPeriod = periodOf(new Date());
     save();
-    $('sName').value = ''; $('sEmail').value = ''; $('sTarget').value = state.targetPerWeek;
+    $('sName').value = ''; $('sEmail').value = '';
     render();
     toast('All data cleared');
   });
@@ -633,7 +605,6 @@ window.LCPApplyRemote = function (remote) {
   state = Object.assign({}, DEFAULTS, remote);
   $('sName').value = state.name || '';
   $('sEmail').value = state.email || '';
-  $('sTarget').value = state.targetPerWeek;
   try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {}
   render();
 };
@@ -652,6 +623,14 @@ window.LCPSetSyncBadge = function (label, on) {
 
 wire();
 render();
+
+// Offline support, and what makes this installable as a phone app. Non-fatal if it fails.
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js')
+      .catch(e => console.warn('Service worker not registered:', e));
+  });
+}
 
 // Load the optional sync layer last so the app works with or without it.
 (function () {
