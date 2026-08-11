@@ -111,6 +111,12 @@ That distinction matters: Firestore hands the client a local snapshot *before* i
 contacts the server, so the badge checks `snapshot.metadata.fromCache` rather than
 trusting the callback. Otherwise it would claim "Synced" while dropping data.
 
+**Conflicts are reconciled strictly by `updatedAt`, in both directions.** The newer side
+wins: a stale device adopts the cloud copy, and a genuinely newer local change is pushed
+up. There is deliberately no unconditional push on load — that made sync order-dependent
+rather than timestamp-dependent, so opening a laptop that had been sitting unused could
+overwrite hours logged more recently on a phone.
+
 `firestore.rules` holds the published rules. They are permanent (not test mode, so they
 do not expire) and scoped to the two documents the app uses, denying `list` so the
 document ids cannot be discovered by browsing and `delete` so nothing can wipe the

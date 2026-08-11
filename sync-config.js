@@ -74,11 +74,20 @@ const DOC_ID = 'jd-d0f8f6da107ffb10a294ed50';
         if (fromServer) push(window.LCPGetState());   // first run: seed the document
         return;
       }
-      const remote = snap.data();
-      if (typeof remote.payload === 'string') {
-        try { window.LCPApplyRemote(JSON.parse(remote.payload)); }
-        catch (e) { console.warn('Bad remote payload', e); }
-      }
+
+      const field = snap.data().payload;
+      if (typeof field !== 'string') return;
+      let remote;
+      try { remote = JSON.parse(field); }
+      catch (e) { return console.warn('Bad remote payload', e); }
+
+      // Reconcile strictly by timestamp, in both directions. Whichever side is newer
+      // wins; a device that has been sitting on stale data must never overwrite hours
+      // logged more recently somewhere else.
+      const local = window.LCPGetState();
+      const rAt = remote.updatedAt || 0, lAt = local.updatedAt || 0;
+      if (rAt > lAt) window.LCPApplyRemote(remote);
+      else if (fromServer && lAt > rAt) push(local);
     }, err => {
       console.warn('Firestore listen failed:', err);
       window.LCPSetSyncBadge(err.code === 'permission-denied' ? 'Sync blocked' : 'Sync error', false);
@@ -94,7 +103,8 @@ const DOC_ID = 'jd-d0f8f6da107ffb10a294ed50';
       catch (e) { console.warn('Bad work log payload', e); }
     }, err => console.warn('Work log listen failed:', err));
 
-    push(window.LCPGetState());   // seed the cloud with whatever is on this device
+    // No unconditional push on load. Seeding happens in the snapshot handler above,
+    // and only when the document is missing or this device is genuinely newer.
   }).catch(err => {
     console.warn('Could not load Firebase:', err);
     window.LCPSetSyncBadge('Sync unavailable', false);

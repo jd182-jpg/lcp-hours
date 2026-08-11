@@ -687,7 +687,7 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
 // The sync layer is optional; the app works with or without it.
 (function () {
   const s = document.createElement('script');
-  s.src = 'sync-config.js?v=6';
+  s.src = 'sync-config.js?v=7';
   s.onerror = () => {};
   document.body.appendChild(s);
 })();
