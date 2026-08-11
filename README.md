@@ -29,9 +29,53 @@ Built to match how LCP payroll actually runs:
 | `index.html` | Markup |
 | `styles.css` | LCP navy/teal styling, responsive |
 | `app.js` | All app logic — periods, timer, entries, report |
-| `sync-config.js` | Optional cross-device sync (off by default) |
+| `sync-config.js` | Cross-device sync via Firebase |
+| `worklog-sync.py` | Pulls the Obsidian daily work log into the timesheet |
+| `install-schedule.sh` | Installs the 5pm launchd job that runs the sync |
 
-No build step, no dependencies. Open `index.html` and it works.
+The web app has no build step and no dependencies. The sync script is standard-library
+Python 3.
+
+## Obsidian work log
+
+Every day at 5pm a launchd job reads that day's note in the `~/LCP` vault, pulls the
+bullets under `## Work Log`, condenses them, and syncs them to Firestore. The app reads
+them back so the report can say what was actually worked on, not just how long.
+
+Install or update the schedule:
+
+```bash
+./install-schedule.sh
+```
+
+Run it by hand:
+
+```bash
+./worklog-sync.py --dry-run        # show what would sync, change nothing
+./worklog-sync.py                  # sync today
+./worklog-sync.py --date 2026-08-10
+./worklog-sync.py --range 7        # backfill the last week
+```
+
+Logs land in `~/Library/Logs/lcp-worklog-sync.log`.
+
+**Condensing** strips the leading `HH:MM —` stamp, drops parenthetical asides (where the
+fine-grained specifics usually live), and truncates on a clause boundary at 170
+characters. The intent is more substance than a project label, less than verbatim.
+
+**Hours are never taken from the work log.** The `HH:MM` stamps record when a line was
+written, not how long the work took. The timer owns hours.
+
+The **Work detail** dropdown on the report card chooses how it appears:
+
+| Mode | Result |
+|---|---|
+| Work summary below | Clean hours table, then a `WORK THIS PERIOD` section |
+| Detail under each day | Each day's hours followed by indented bullets |
+| Hours only | No descriptions at all |
+
+If a day has no Obsidian work log, the report falls back to the notes typed on that day's
+entries.
 
 ## Storage
 

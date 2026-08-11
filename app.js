@@ -7,9 +7,14 @@
    ========================================================================== */
 
 const LS_KEY = 'lcp-hours-v1';
-const DEFAULTS = { name: '', email: '', targetPerWeek: 30, entries: [], timer: null, updatedAt: 0 };
+const WL_KEY = 'lcp-worklog-v1';
+const DEFAULTS = {
+  name: '', email: '', targetPerWeek: 30, entries: [], timer: null,
+  detailMode: 'summary', updatedAt: 0
+};
 
 let state = load();
+let worklog = loadWorklog();   // { 'YYYY-MM-DD': ['what I did', ...] } from Obsidian
 let viewPeriod = periodOf(new Date());   // which pay period the page is showing
 let tickHandle = null;
 
@@ -32,6 +37,16 @@ function save({ push = true } = {}) {
     toast('Could not save to this browser');
   }
   if (push && window.LCPSync) window.LCPSync.push(state);
+}
+
+// The work log is written by worklog-sync.py, not by this app — cache it locally so
+// the report still reads correctly offline.
+function loadWorklog() {
+  try {
+    const raw = localStorage.getItem(WL_KEY);
+    if (raw) return JSON.parse(raw) || {};
+  } catch (e) { console.warn('Could not read cached work log:', e); }
+  return {};
 }
 
 /* ------------------------------------------------------------ date helpers */
@@ -110,6 +125,25 @@ function roundQuarter(n) { return Math.round(n * 4) / 4; }
 function pad(s, n) { s = String(s); return s + ' '.repeat(Math.max(0, n - s.length)); }
 function padL(s, n) { s = String(s); return ' '.repeat(Math.max(0, n - s.length)) + s; }
 
+/** Push `text` onto `out`, word-wrapped to WRAP_AT, first line prefixed differently. */
+const WRAP_AT = 76;
+function wrapInto(out, text, firstPrefix, contPrefix) {
+  const words = String(text).split(/\s+/).filter(Boolean);
+  if (!words.length) return;
+  let line = firstPrefix, started = false;
+  words.forEach(w => {
+    const candidate = started ? `${line} ${w}` : line + w;
+    if (started && candidate.length > WRAP_AT) {
+      out.push(line);
+      line = contPrefix + w;
+    } else {
+      line = candidate;
+    }
+    started = true;
+  });
+  out.push(line);
+}
+
 /* ----------------------------------------------------------------- entries */
 
 function entriesFor(p) {
@@ -121,6 +155,19 @@ function totalFor(p) {
   return round2(entriesFor(p).reduce((s, e) => s + (Number(e.hours) || 0), 0));
 }
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+/**
+ * What was worked on that day. The Obsidian work log wins when it exists, since it's
+ * written from the actual daily note; typed entry notes are the fallback.
+ */
+function descFor(date) {
+  const wl = worklog[date];
+  if (Array.isArray(wl) && wl.length) return wl.slice();
+  const notes = state.entries
+    .filter(e => e.date === date && e.note)
+    .map(e => e.note.trim());
+  return [...new Set(notes)];
+}
 
 function addEntry(e) {
   state.entries.push(Object.assign({ id: uid(), note: '' }, e));
@@ -328,6 +375,7 @@ function buildReport() {
     byDay.set(e.date, (byDay.get(e.date) || 0) + h);
   });
 
+  const mode = state.detailMode || 'summary';
   const lines = [];
   lines.push(`LCP HOURS — ${name.toUpperCase()}`);
   lines.push(`Pay period: ${periodLabel(p)}`);
@@ -343,6 +391,9 @@ function buildReport() {
       const d = parseYmd(date);
       const day = `${DOW[d.getDay()]} ${MON[d.getMonth()]} ${String(d.getDate()).padStart(2, ' ')}`;
       lines.push(`  ${pad(day, 12)}${padL(val.toFixed(2), 7)}`);
+      if (mode === 'perday') {
+        descFor(date).forEach(t => wrapInto(lines, t, '      - ', '        '));
+      }
     });
   }
 
@@ -354,11 +405,44 @@ function buildReport() {
   const days = Math.round((p.to - p.from) / 86400000) + 1;
   lines.push(`Average: ${(total / (days / 7)).toFixed(1)} hrs/week`);
 
-  return { text: lines.join('\n'), total, period: p, name, byDay, doRound };
+  if (mode === 'summary') {
+    const block = [];
+    byDay.forEach((h, date) => {
+      const items = descFor(date);
+      if (!items.length) return;
+      const d = parseYmd(date);
+      block.push(`  ${DOW[d.getDay()]} ${MON[d.getMonth()]} ${d.getDate()}`);
+      items.forEach(t => wrapInto(block, t, '    - ', '      '));
+    });
+    if (block.length) {
+      lines.push('');
+      lines.push('WORK THIS PERIOD');
+      lines.push(...block);
+    }
+  }
+
+  return { text: lines.join('\n'), total, period: p, name, byDay, doRound, mode };
 }
 
 function renderReport() {
   $('reportOut').textContent = buildReport().text;
+  renderWorklogStatus();
+}
+
+/** Feedback that the 5pm Obsidian job is actually landing data. */
+function renderWorklogStatus() {
+  const el = $('worklogStatus');
+  const days = entriesFor(viewPeriod).map(e => e.date);
+  const covered = [...new Set(days)].filter(d => (worklog[d] || []).length);
+  const items = covered.reduce((n, d) => n + worklog[d].length, 0);
+
+  if (!Object.keys(worklog).length) {
+    el.textContent = 'No Obsidian work log yet — descriptions fall back to your entry notes.';
+    el.classList.remove('on');
+    return;
+  }
+  el.textContent = `Obsidian work log: ${items} item(s) across ${covered.length} day(s) this period.`;
+  el.classList.toggle('on', items > 0);
 }
 
 /* ------------------------------------------------------------------ export */
@@ -397,24 +481,20 @@ function emailReport() {
 function downloadCsv() {
   const r = buildReport();
   const esc = s => `"${String(s).replace(/"/g, '""')}"`;
-  const out = [['Date', 'Day', 'Hours', 'Notes'].join(',')];
+  const withWork = r.mode !== 'none';
+  const out = [(withWork ? ['Date', 'Day', 'Hours', 'Work'] : ['Date', 'Day', 'Hours']).join(',')];
 
   // One row per day, rounded the same way as the on-screen report, so the
   // rows always add up to the TOTAL Ashley sees.
-  const notesByDay = new Map();
-  entriesFor(r.period).forEach(e => {
-    if (!e.note) return;
-    if (!notesByDay.has(e.date)) notesByDay.set(e.date, []);
-    notesByDay.get(e.date).push(e.note);
-  });
-
   r.byDay.forEach((raw, date) => {
     const d = parseYmd(date);
     const h = r.doRound ? roundQuarter(raw) : round2(raw);
-    out.push([date, DOW[d.getDay()], h.toFixed(2), esc((notesByDay.get(date) || []).join('; '))].join(','));
+    const row = [date, DOW[d.getDay()], h.toFixed(2)];
+    if (withWork) row.push(esc(descFor(date).join('; ')));
+    out.push(row.join(','));
   });
   out.push('');
-  out.push(['', 'TOTAL', r.total.toFixed(2), ''].join(','));
+  out.push((withWork ? ['', 'TOTAL', r.total.toFixed(2), ''] : ['', 'TOTAL', r.total.toFixed(2)]).join(','));
 
   const fn = `LCP-Hours_${r.name.replace(/\s+/g, '-')}_${ymd(r.period.from)}_to_${ymd(r.period.to)}.csv`;
   const blob = new Blob([out.join('\n')], { type: 'text/csv;charset=utf-8' });
@@ -491,6 +571,12 @@ function wire() {
   });
 
   // Report
+  $('detailMode').value = state.detailMode || 'summary';
+  $('detailMode').addEventListener('change', () => {
+    state.detailMode = $('detailMode').value;
+    save();
+    renderReport();
+  });
   $('roundChk').addEventListener('change', renderReport);
   $('btnCopy').addEventListener('click', copyReport);
   $('btnEmail').addEventListener('click', emailReport);
@@ -531,6 +617,13 @@ window.LCPApplyRemote = function (remote) {
   $('sTarget').value = state.targetPerWeek;
   try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {}
   render();
+};
+/** Called by sync-config.js with the work log written by worklog-sync.py. */
+window.LCPApplyWorklog = function (days) {
+  if (!days || typeof days !== 'object') return;
+  worklog = days;
+  try { localStorage.setItem(WL_KEY, JSON.stringify(worklog)); } catch (e) {}
+  renderReport();
 };
 window.LCPGetState = () => state;
 window.LCPSetSyncBadge = function (label, on) {

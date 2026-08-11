@@ -84,6 +84,16 @@ const DOC_ID = 'jd-d0f8f6da107ffb10a294ed50';
       window.LCPSetSyncBadge(err.code === 'permission-denied' ? 'Sync blocked' : 'Sync error', false);
     });
 
+    // The work log is written by worklog-sync.py from the Obsidian daily note; the
+    // app only ever reads it.
+    fsMod.onSnapshot(fsMod.doc(db, 'worklog', DOC_ID), snap => {
+      if (!snap.exists()) return;
+      const payload = snap.data().payload;
+      if (typeof payload !== 'string') return;
+      try { window.LCPApplyWorklog(JSON.parse(payload).days || {}); }
+      catch (e) { console.warn('Bad work log payload', e); }
+    }, err => console.warn('Work log listen failed:', err));
+
     push(window.LCPGetState());   // seed the cloud with whatever is on this device
   }).catch(err => {
     console.warn('Could not load Firebase:', err);

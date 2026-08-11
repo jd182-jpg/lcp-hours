@@ -119,8 +119,16 @@
   <section class="card">
     <div class="card-head">
       <h2>Report for Ashley</h2>
-      <label class="chk"><input type="checkbox" id="roundChk" checked> Round to nearest &frac14; hr</label>
+      <div class="head-ctrls">
+        <select id="detailMode" class="in sel" title="How much work detail to include">
+          <option value="summary">Work summary below</option>
+          <option value="perday">Detail under each day</option>
+          <option value="none">Hours only</option>
+        </select>
+        <label class="chk"><input type="checkbox" id="roundChk" checked> Round to nearest &frac14; hr</label>
+      </div>
     </div>
+    <p class="worklog-status" id="worklogStatus"></p>
     <pre class="report" id="reportOut"></pre>
     <div class="report-acts">
       <button class="btn btn-go" id="btnCopy">Copy report</button>
