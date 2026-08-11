@@ -132,3 +132,21 @@ At the bottom of the report card:
 The **Round to nearest ¼ hr** toggle rounds each *day's* total, not each entry, so the
 day rows always add up to the reported total. The on-screen "hours this period" stat
 always shows exact unrounded time; the report is what's rounded.
+
+## Payroll import CSV
+
+LCP pays through Paylocity. **The exact columns a Paylocity time import expects depend on
+how that company's import is mapped**, so the "Payroll import CSV" button is a reasonable
+draft, not a known-good format. Confirm the headers with payroll before relying on it.
+
+It differs from the Hours CSV in ways imports care about:
+
+- One row per day, dates as `MM/DD/YYYY`
+- Employee ID, employee name, earnings code, and cost center columns
+- **No total row and no blank lines** — import parsers treat a summary line as a
+  malformed record
+
+Employee ID, earn code (default `REG`), and cost center are set in the second settings
+row and affect only this file.
+
+If payroll keys hours in by hand, ignore this and use the report or the Hours CSV.

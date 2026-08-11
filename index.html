@@ -16,7 +16,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
 <!-- ?v= is bumped on every shell change. Without it a browser can pair a fresh
      index.html with a cached app.js and the app breaks on a removed element. -->
-<link rel="stylesheet" href="styles.css?v=5">
+<link rel="stylesheet" href="styles.css?v=6">
 </head>
 <body>
 
@@ -132,7 +132,8 @@
     <div class="report-acts">
       <button class="btn btn-go" id="btnCopy">Copy report</button>
       <button class="btn btn-ghost" id="btnEmail">Email to Ashley</button>
-      <button class="btn btn-ghost" id="btnCsv">Download CSV</button>
+      <button class="btn btn-ghost" id="btnCsv">Hours CSV</button>
+      <button class="btn btn-ghost" id="btnImportCsv" title="Draft payroll-import layout — confirm the columns with Ashley">Payroll import CSV</button>
     </div>
     <div class="settings-row">
       <div class="ff">
@@ -143,6 +144,21 @@
         <label for="sEmail">Ashley's email</label>
         <input type="email" id="sEmail" class="in" placeholder="ashley@...">
       </div>
+    </div>
+    <div class="settings-row settings-row-sub">
+      <div class="ff">
+        <label for="sEmpId">Employee ID</label>
+        <input type="text" id="sEmpId" class="in" placeholder="optional">
+      </div>
+      <div class="ff ff-sm">
+        <label for="sEarnCode">Earn code</label>
+        <input type="text" id="sEarnCode" class="in" placeholder="REG">
+      </div>
+      <div class="ff ff-grow">
+        <label for="sCostCenter">Cost center</label>
+        <input type="text" id="sCostCenter" class="in" placeholder="optional">
+      </div>
+      <p class="field-note">These three only affect the payroll import CSV.</p>
     </div>
   </section>
 
@@ -155,6 +171,6 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="app.js?v=5"></script>
+<script src="app.js?v=6"></script>
 </body>
 </html>

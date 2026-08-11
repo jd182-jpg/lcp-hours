@@ -10,7 +10,8 @@ const LS_KEY = 'lcp-hours-v1';
 const WL_KEY = 'lcp-worklog-v1';
 const DEFAULTS = {
   name: '', email: '', entries: [], timer: null,
-  detailMode: 'summary', updatedAt: 0
+  detailMode: 'summary', updatedAt: 0,
+  empId: '', earnCode: 'REG', costCenter: ''     // payroll-import fields only
 };
 
 let state = load();
@@ -488,16 +489,51 @@ function downloadCsv() {
   out.push('');
   out.push((withWork ? ['', 'TOTAL', r.total.toFixed(2), ''] : ['', 'TOTAL', r.total.toFixed(2)]).join(','));
 
-  const fn = `LCP-Hours_${r.name.replace(/\s+/g, '-')}_${ymd(r.period.from)}_to_${ymd(r.period.to)}.csv`;
-  const blob = new Blob([out.join('\n')], { type: 'text/csv;charset=utf-8' });
+  saveCsv(out.join('\n'),
+    `LCP-Hours_${r.name.replace(/\s+/g, '-')}_${ymd(r.period.from)}_to_${ymd(r.period.to)}.csv`);
+  toast('CSV downloaded');
+}
+
+/**
+ * A payroll-import layout: one row per day, no header noise, and deliberately NO total
+ * row — import parsers treat a summary line as a malformed record.
+ *
+ * The exact columns Paylocity wants depend on how the company's import is mapped, so
+ * treat this as a draft to confirm with payroll rather than a known-good format.
+ */
+function downloadImportCsv() {
+  const r = buildReport();
+  const esc = s => `"${String(s).replace(/"/g, '""')}"`;
+  const out = [['Employee ID', 'Employee Name', 'Date', 'Earnings Code', 'Hours', 'Cost Center'].join(',')];
+
+  r.byDay.forEach((raw, date) => {
+    const h = r.doRound ? roundQuarter(raw) : round2(raw);
+    if (h <= 0) return;
+    const d = parseYmd(date);
+    const mdy = `${String(d.getMonth() + 1).padStart(2, '0')}/`
+              + `${String(d.getDate()).padStart(2, '0')}/${d.getFullYear()}`;
+    out.push([
+      esc(state.empId || ''), esc(r.name), mdy,
+      esc(state.earnCode || 'REG'), h.toFixed(2), esc(state.costCenter || '')
+    ].join(','));
+  });
+
+  if (out.length === 1) return toast('No hours to export this period');
+
+  saveCsv(out.join('\n'),
+    `LCP-Hours_PayrollImport_${ymd(r.period.from)}_to_${ymd(r.period.to)}.csv`);
+  toast('Payroll import CSV downloaded');
+}
+
+function saveCsv(text, filename) {
+  const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = fn;
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-  toast('CSV downloaded');
 }
 
 /* ------------------------------------------------------------------- toast */
@@ -573,41 +609,53 @@ function wire() {
   $('btnCopy').addEventListener('click', copyReport);
   $('btnEmail').addEventListener('click', emailReport);
   $('btnCsv').addEventListener('click', downloadCsv);
+  $('btnImportCsv').addEventListener('click', downloadImportCsv);
 
-  // Settings
-  const bind = (id, key, num) => {
+  // Settings — driven off SETTINGS so the input list can't drift out of step with
+  // the reset and remote-sync paths.
+  SETTINGS.forEach(([id, key]) => {
     const el = $(id);
+    if (!el) return;
     el.value = state[key] ?? '';
     el.addEventListener('input', () => {
-      state[key] = num ? (parseFloat(el.value) || 0) : el.value;
+      state[key] = el.value;
       save();
-      renderPeriod();
       renderReport();
     });
-  };
-  bind('sName', 'name', false);
-  bind('sEmail', 'email', false);
+  });
 
   $('btnWipe').addEventListener('click', () => {
     if (!confirm('Delete all logged hours and settings? This cannot be undone.')) return;
     state = Object.assign({}, DEFAULTS);
     viewPeriod = periodOf(new Date());
     save();
-    $('sName').value = ''; $('sEmail').value = '';
+    syncSettingsInputs();
     render();
     toast('All data cleared');
   });
 }
 
+/** Every text setting: [input id, state key]. One list, three consumers. */
+const SETTINGS = [
+  ['sName', 'name'],
+  ['sEmail', 'email'],
+  ['sEmpId', 'empId'],
+  ['sEarnCode', 'earnCode'],
+  ['sCostCenter', 'costCenter'],
+];
+
 /** Set an input's value only if the element exists, so HTML/JS version skew degrades. */
 function setVal(id, v) { const el = $(id); if (el) el.value = v; }
+
+function syncSettingsInputs() {
+  SETTINGS.forEach(([id, key]) => setVal(id, state[key] ?? ''));
+}
 
 /** Called by sync-config.js when a newer copy arrives from the cloud. */
 window.LCPApplyRemote = function (remote) {
   if (!remote || (remote.updatedAt || 0) <= (state.updatedAt || 0)) return;
   state = Object.assign({}, DEFAULTS, remote);
-  setVal('sName', state.name || '');
-  setVal('sEmail', state.email || '');
+  syncSettingsInputs();
   try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {}
   render();
 };
@@ -639,7 +687,7 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
 // The sync layer is optional; the app works with or without it.
 (function () {
   const s = document.createElement('script');
-  s.src = 'sync-config.js?v=5';
+  s.src = 'sync-config.js?v=6';
   s.onerror = () => {};
   document.body.appendChild(s);
 })();
