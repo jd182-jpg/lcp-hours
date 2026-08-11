@@ -14,7 +14,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
+<!-- ?v= is bumped on every shell change. Without it a browser can pair a fresh
+     index.html with a cached app.js and the app breaks on a removed element. -->
+<link rel="stylesheet" href="styles.css?v=5">
 </head>
 <body>
 
@@ -153,6 +155,6 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="app.js"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>

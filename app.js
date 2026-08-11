@@ -599,12 +599,15 @@ function wire() {
   });
 }
 
+/** Set an input's value only if the element exists, so HTML/JS version skew degrades. */
+function setVal(id, v) { const el = $(id); if (el) el.value = v; }
+
 /** Called by sync-config.js when a newer copy arrives from the cloud. */
 window.LCPApplyRemote = function (remote) {
   if (!remote || (remote.updatedAt || 0) <= (state.updatedAt || 0)) return;
   state = Object.assign({}, DEFAULTS, remote);
-  $('sName').value = state.name || '';
-  $('sEmail').value = state.email || '';
+  setVal('sName', state.name || '');
+  setVal('sEmail', state.email || '');
   try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {}
   render();
 };
@@ -622,9 +625,10 @@ window.LCPSetSyncBadge = function (label, on) {
 };
 
 wire();
-render();
 
-// Offline support, and what makes this installable as a phone app. Non-fatal if it fails.
+// Sync and the service worker are started BEFORE the first render on purpose: if
+// rendering ever throws, cloud sync and offline support should still come up rather
+// than the whole page going dark.
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js')
@@ -632,10 +636,12 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   });
 }
 
-// Load the optional sync layer last so the app works with or without it.
+// The sync layer is optional; the app works with or without it.
 (function () {
   const s = document.createElement('script');
-  s.src = 'sync-config.js';
+  s.src = 'sync-config.js?v=5';
   s.onerror = () => {};
   document.body.appendChild(s);
 })();
+
+render();
