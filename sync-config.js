@@ -27,7 +27,14 @@
    hours totals, that's usually fine. Ask me to lock it down if you'd prefer.
    ========================================================================== */
 
-const FIREBASE_CONFIG = null;   // <-- replace null with the { ... } object from step 3
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCVUrdvIcvbej4P67yPs83ZQWrygZZDqMI",
+  authDomain: "lcp-hours.firebaseapp.com",
+  projectId: "lcp-hours",
+  storageBucket: "lcp-hours.firebasestorage.app",
+  messagingSenderId: "1098549520160",
+  appId: "1:1098549520160:web:beb0cc14f62f043f911945"
+};
 
 // A random, unguessable id for your timesheet document. Because the app has no login,
 // this string is the only thing standing between your hours and anyone poking around
@@ -56,9 +63,17 @@ const DOC_ID = 'jd-d0f8f6da107ffb10a294ed50';
     docRef = fsMod.doc(db, 'timesheets', DOC_ID);
     setDocFn = fsMod.setDoc;
 
-    fsMod.onSnapshot(docRef, snap => {
-      window.LCPSetSyncBadge('Synced', true);
-      if (!snap.exists()) { push(window.LCPGetState()); return; }
+    // includeMetadataChanges + the fromCache flag matter here: Firestore hands you a
+    // local snapshot immediately, before it has talked to the server. Without this
+    // check the badge would claim "Synced" even when the backend is unreachable.
+    fsMod.onSnapshot(docRef, { includeMetadataChanges: true }, snap => {
+      const fromServer = !snap.metadata.fromCache;
+      window.LCPSetSyncBadge(fromServer ? 'Synced' : 'Offline — will sync', fromServer);
+
+      if (!snap.exists()) {
+        if (fromServer) push(window.LCPGetState());   // first run: seed the document
+        return;
+      }
       const remote = snap.data();
       if (typeof remote.payload === 'string') {
         try { window.LCPApplyRemote(JSON.parse(remote.payload)); }
@@ -66,7 +81,7 @@ const DOC_ID = 'jd-d0f8f6da107ffb10a294ed50';
       }
     }, err => {
       console.warn('Firestore listen failed:', err);
-      window.LCPSetSyncBadge('Sync error', false);
+      window.LCPSetSyncBadge(err.code === 'permission-denied' ? 'Sync blocked' : 'Sync error', false);
     });
 
     push(window.LCPGetState());   // seed the cloud with whatever is on this device
