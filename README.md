@@ -7,7 +7,7 @@ Built to match how LCP payroll actually runs:
 
 - Pay periods are **1st–15th** and **16th–end of month**
 - Loosely **30 hrs/week**, but payroll pays an estimate and trues up next period, so the app does not track a target
-- Ashley gets a per-day breakdown with a total, rounded to the nearest quarter hour
+- Ashley gets a per-day breakdown with a total, in exact decimal hours
 
 ## What it does
 
@@ -20,6 +20,7 @@ Built to match how LCP payroll actually runs:
 - **Period totals** — hours this period, days worked, and average hours per week.
 - **Report for Ashley** — formatted per-day summary with a total. Copy it, open a
   pre-filled email, or download a CSV. All three tie to the same numbers.
+- **Fractional hours** — type any decimal (`6.33`, `1.1`); nothing is rounded.
 
 ## Files
 
@@ -133,11 +134,14 @@ At the bottom of the report card:
 - **Your name** — appears in the report header and CSV filename
 - **Ashley's email** — prefills the "Email to Ashley" button
 
-## Rounding
+## Hours precision
 
-The **Round to nearest ¼ hr** toggle rounds each *day's* total, not each entry, so the
-day rows always add up to the reported total. The on-screen "hours this period" stat
-always shows exact unrounded time; the report is what's rounded.
+Hours are reported exactly as entered, to two decimals. Any decimal is accepted —
+`6.33`, `1.1`, `0.05` — because the hours field uses `step="any"`; a quarter-hour step
+made the browser reject anything that wasn't a multiple of 0.25.
+
+There is no rounding toggle. It was removed once fractional entry landed, since rounding
+to quarter hours contradicted the point of entering `6.33`.
 
 ## Payroll import CSV
 

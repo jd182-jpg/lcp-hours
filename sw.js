@@ -8,13 +8,13 @@
  * already falls back to system fonts and to localStorage-cached hours when offline.
  */
 
-const CACHE = 'lcp-hours-v7';
+const CACHE = 'lcp-hours-v9';
 const SHELL = [
   './',
   './index.html',
-  './styles.css?v=7',
-  './app.js?v=7',
-  './sync-config.js?v=7',
+  './styles.css?v=9',
+  './app.js?v=9',
+  './sync-config.js?v=9',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',

@@ -112,7 +112,6 @@ function fmtTime(hm) {                    // '14:30' -> '2:30 PM'
   return `${h12}:${String(m).padStart(2, '0')} ${ap}`;
 }
 function round2(n) { return Math.round(n * 100) / 100; }
-function roundQuarter(n) { return Math.round(n * 4) / 4; }
 function pad(s, n) { s = String(s); return s + ' '.repeat(Math.max(0, n - s.length)); }
 function padL(s, n) { s = String(s); return ' '.repeat(Math.max(0, n - s.length)) + s; }
 
@@ -338,7 +337,6 @@ function renderEntries() {
 
 function buildReport() {
   const p = viewPeriod;
-  const doRound = $('roundChk').checked;
   const rows = entriesFor(p);
   const name = (state.name || '').trim() || 'Jackson Darr';
 
@@ -360,7 +358,7 @@ function buildReport() {
     lines.push('  (no hours logged this period)');
   } else {
     byDay.forEach((h, date) => {
-      const val = doRound ? roundQuarter(h) : round2(h);
+      const val = round2(h);
       total += val;
       const d = parseYmd(date);
       const day = `${DOW[d.getDay()]} ${MON[d.getMonth()]} ${String(d.getDate()).padStart(2, ' ')}`;
@@ -395,7 +393,7 @@ function buildReport() {
     }
   }
 
-  return { text: lines.join('\n'), total, period: p, name, byDay, doRound, mode };
+  return { text: lines.join('\n'), total, period: p, name, byDay, mode };
 }
 
 function renderReport() {
@@ -481,7 +479,7 @@ function downloadCsv() {
   // rows always add up to the TOTAL Ashley sees.
   r.byDay.forEach((raw, date) => {
     const d = parseYmd(date);
-    const h = r.doRound ? roundQuarter(raw) : round2(raw);
+    const h = round2(raw);
     const row = [date, DOW[d.getDay()], h.toFixed(2)];
     if (withWork) row.push(esc(descFor(date).join('; ')));
     out.push(row.join(','));
@@ -507,7 +505,7 @@ function downloadImportCsv() {
   const out = [['Employee ID', 'Employee Name', 'Date', 'Earnings Code', 'Hours', 'Cost Center'].join(',')];
 
   r.byDay.forEach((raw, date) => {
-    const h = r.doRound ? roundQuarter(raw) : round2(raw);
+    const h = round2(raw);
     if (h <= 0) return;
     const d = parseYmd(date);
     const mdy = `${String(d.getMonth() + 1).padStart(2, '0')}/`
@@ -605,7 +603,6 @@ function wire() {
     save();
     renderReport();
   });
-  $('roundChk').addEventListener('change', renderReport);
   $('btnCopy').addEventListener('click', copyReport);
   $('btnEmail').addEventListener('click', emailReport);
   $('btnCsv').addEventListener('click', downloadCsv);
@@ -687,7 +684,7 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
 // The sync layer is optional; the app works with or without it.
 (function () {
   const s = document.createElement('script');
-  s.src = 'sync-config.js?v=7';
+  s.src = 'sync-config.js?v=9';
   s.onerror = () => {};
   document.body.appendChild(s);
 })();
